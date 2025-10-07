@@ -1,0 +1,176 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL Phishing Detector</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --primary-hover: #0056b3;
+            --benign-bg: #e9f7ef;
+            --benign-border: #28a745;
+            --benign-text: #155724;
+            --malicious-bg: #f8d7da;
+            --malicious-border: #dc3545;
+            --malicious-text: #721c24;
+        }
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            padding-top: 50px;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 700px;
+            text-align: center;
+        }
+        h1 { font-weight: 600; color: #1c1e21; margin-bottom: 30px; }
+        .tab-container { display: flex; border-bottom: 1px solid #ddd; margin-bottom: 20px; }
+        .tab-button {
+            padding: 10px 20px; cursor: pointer; border: none; background: none;
+            font-size: 16px; font-weight: 600; color: #666;
+            border-bottom: 3px solid transparent; transition: all 0.3s;
+        }
+        .tab-button.active { color: var(--primary-color); border-bottom-color: var(--primary-color); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        form { display: flex; flex-direction: column; gap: 15px; }
+        input[type="text"] {
+            width: 100%; padding: 15px; border: 1px solid #dddfe2;
+            border-radius: 8px; font-size: 16px; box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+        input[type="text"]:focus { outline: none; border-color: var(--primary-color); }
+        input[type="file"] {
+            border: 1px solid #dddfe2; padding: 10px; border-radius: 8px; cursor: pointer;
+        }
+        button {
+            background-color: var(--primary-color); color: white; border: none;
+            padding: 15px; border-radius: 8px; font-size: 18px; font-weight: 600;
+            cursor: pointer; transition: background-color 0.3s;
+        }
+        button:hover { background-color: var(--primary-hover); }
+        .result-box {
+            margin-top: 30px; padding: 20px; border-radius: 8px; text-align: left;
+            border-left: 5px solid;
+        }
+        .result-box.benign {
+            background-color: var(--benign-bg); border-color: var(--benign-border); color: var(--benign-text);
+        }
+        .result-box.malicious {
+            background-color: var(--malicious-bg); border-color: var(--malicious-border); color: var(--malicious-text);
+        }
+        .result-box h2 { margin-top: 0; }
+        .results-table { width: 100%; margin-top: 30px; border-collapse: collapse; text-align: left; }
+        .results-table th, .results-table td { padding: 12px 15px; border-bottom: 1px solid #ddd; }
+        .results-table th { background-color: #f4f4f4; font-weight: 600; }
+        .results-table tr:nth-of-type(even) { background-color: #f9f9f9; }
+        .results-table td.prediction-cell.benign { color: var(--benign-border); font-weight: 600; }
+        .results-table td.prediction-cell.malicious { color: var(--malicious-border); font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>URL Detector 🔎</h1>
+
+        <!-- Tab Navigation -->
+        <div class="tab-container">
+            <button class="tab-button active" onclick="openTab(event, 'singleUrl')">Single URL</button>
+            <button class="tab-button" onclick="openTab(event, 'csvUpload')">Upload CSV</button>
+        </div>
+
+        <!-- Single URL -->
+        <div id="singleUrl" class="tab-content active">
+            <form action="/predict" method="POST">
+                <input type="text" name="url" placeholder="Enter URL to analyse..." required>
+                <button type="submit">Analyse URL</button>
+            </form>
+        </div>
+
+        <!-- CSV Upload -->
+        <div id="csvUpload" class="tab-content">
+            <form action="/predict_csv" method="POST" enctype="multipart/form-data">
+                <input type="file" name="file" accept=".csv" required>
+                <button type="submit">Analyse CSV</button>
+            </form>
+            <p style="font-size: 14px; color: #666; margin-top: 10px;">
+                Your CSV should have a header row with a column named 'url'.
+            </p>
+        </div>
+
+        <!-- Results -->
+        <div class="results-area">
+            <!-- Single prediction result -->
+            {% if prediction %}
+                {% set pred_label = prediction['prediction'] if prediction is mapping else prediction %}
+                <div class="result-box {{ 'benign' if pred_label == 'Benign' else 'malicious' }}">
+                    <h2>Analysis Result:</h2>
+                    <p><strong>URL Analysed:</strong> {{ url }}</p>
+                    <p><strong>Verdict:</strong> {{ pred_label }}
+                        {% if prediction is mapping and prediction.confidence is defined %}
+                            (Confidence: {{ (prediction.confidence * 100) | round(1) }}%)
+                        {% endif %}
+                    </p>
+                </div>
+            {% endif %}
+
+            <!-- CSV results -->
+            {% if csv_results %}
+                <h2>CSV Analysis Results:</h2>
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th>URL</th>
+                            <th>Prediction</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for result in csv_results %}
+                            {% set rlabel = result.prediction['prediction'] if result.prediction is mapping else result.prediction %}
+                            <tr>
+                                <td>{{ result.url }}</td>
+                                <td class="prediction-cell {{ 'benign' if rlabel == 'Benign' else 'malicious' }}">
+                                    {{ rlabel }}
+                                    {% if result.prediction is mapping and result.prediction.confidence is defined %}
+                                        ({{ (result.prediction.confidence * 100) | round(1) }}%)
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        function openTab(evt, tabName) {
+            const tabcontent = document.getElementsByClassName("tab-content");
+            for (let i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            const tablinks = document.getElementsByClassName("tab-button");
+            for (let i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(" active", "");
+            }
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.className += " active";
+        }
+    </script>
+</body>
+</html>
